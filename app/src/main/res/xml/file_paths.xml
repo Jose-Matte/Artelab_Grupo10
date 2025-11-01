@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<paths xmlns:android="http://schemas.android.com/apk/res/android">
+    <!-- Directorio para imágenes capturadas con la cámara -->
+    <external-files-path
+        name="my_images"
+        path="Pictures/" />
+
+    <!-- Directorio de caché para imágenes temporales -->
+    <cache-path
+        name="cache_images"
+        path="images/" />
+
+    <!-- Directorio de archivos internos (subcarpeta images) -->
+    <files-path
+        name="internal_images"
+        path="images/" />
+
+    <!-- Directorio de archivos internos (raíz para temp_photo_*.jpg) -->
+    <files-path
+        name="temp_photos"
+        path="." />
+</paths>
