@@ -67,6 +67,7 @@ fun ProfileScreen(
 
     var showImagePicker by remember { mutableStateOf(false) }
     var avatarUri by remember { mutableStateOf<Uri?>(null) }
+    var permissionErrorMessage by remember { mutableStateOf<String?>(null) }
 
     // URI temporal para cámara (debe persistir entre recomposiciones)
     var tempPhotoUri by remember { mutableStateOf<Uri?>(null) }
@@ -84,49 +85,7 @@ fun ProfileScreen(
         )
     }
 
-    // Launcher para permisos de cámara
-    val cameraPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted) {
-            // Permiso concedido, abrir cámara
-            tempPhotoUri = createTempPhotoUri(context)
-            tempPhotoUri?.let { uri ->
-                cameraLauncher.launch(uri)
-            }
-        } else {
-            // Permiso denegado, mostrar mensaje
-            errorMessage = "Permiso de cámara denegado"
-        }
-    }
-
-    // Launcher para permisos de galería (solo Android 13+)
-    val galleryPermissionLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.RequestPermission()
-    ) { isGranted ->
-        if (isGranted || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
-            // Permiso concedido o no necesario, abrir galería
-            galleryLauncher.launch("image/*")
-        } else {
-            // Permiso denegado
-            errorMessage = "Permiso de galería denegado"
-        }
-    }
-
-    // Launcher para galería
-    val galleryLauncher = rememberLauncherForActivityResult(
-        contract = ActivityResultContracts.GetContent()
-    ) { uri: Uri? ->
-        uri?.let {
-            avatarUri = it
-            // Guardar URI en Room Database mediante callback
-            scope.launch {
-                onUpdateAvatar(it)
-            }
-        }
-    }
-
-    // Launcher para cámara
+    // Launcher para cámara (DEBE IR ANTES del permission launcher)
     val cameraLauncher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.TakePicture()
     ) { success ->
@@ -139,6 +98,48 @@ fun ProfileScreen(
                     onUpdateAvatar(uri)
                 }
             }
+        }
+    }
+
+    // Launcher para galería (DEBE IR ANTES del permission launcher)
+    val galleryLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.GetContent()
+    ) { uri: Uri? ->
+        uri?.let {
+            avatarUri = it
+            // Guardar URI en Room Database mediante callback
+            scope.launch {
+                onUpdateAvatar(it)
+            }
+        }
+    }
+
+    // Launcher para permisos de cámara
+    val cameraPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted) {
+            // Permiso concedido, abrir cámara
+            tempPhotoUri = createTempPhotoUri(context)
+            tempPhotoUri?.let { uri ->
+                cameraLauncher.launch(uri)
+            }
+        } else {
+            // Permiso denegado, mostrar mensaje
+            permissionErrorMessage = "Permiso de cámara denegado"
+        }
+    }
+
+    // Launcher para permisos de galería (solo Android 13+)
+    val galleryPermissionLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.RequestPermission()
+    ) { isGranted ->
+        if (isGranted || Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU) {
+            // Permiso concedido o no necesario, abrir galería
+            galleryLauncher.launch("image/*")
+        } else {
+            // Permiso denegado
+            permissionErrorMessage = "Permiso de galería denegado"
         }
     }
 
@@ -206,6 +207,16 @@ fun ProfileScreen(
         }
     }
 
+    // Snackbar para mensajes de error de permisos
+    val snackbarHostState = remember { SnackbarHostState() }
+
+    LaunchedEffect(permissionErrorMessage) {
+        permissionErrorMessage?.let { message ->
+            snackbarHostState.showSnackbar(message)
+            permissionErrorMessage = null
+        }
+    }
+
     // UI Principal
     Scaffold(
         topBar = {
@@ -220,7 +231,8 @@ fun ProfileScreen(
                     containerColor = MaterialTheme.colorScheme.surface
                 )
             )
-        }
+        },
+        snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         when {
             // Estado de loading
